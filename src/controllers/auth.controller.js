@@ -1,54 +1,52 @@
 import bcrypt from 'bcrypt'
-import { db } from '../database/database.connection.js'
 import { v4 as uuid } from 'uuid'
+import { createUserDB, getUserByEmailDB } from '../repositories/user.repository.js'
+import { createSessionDB } from '../repositories/auth.repository.js'
 
 export async function signIn(req, res) {
   const { email, password } = req.body;
 
-  const { rows: users } = await db.query(
-    `SELECT * FROM users WHERE email = $1 `,
-    [email]
-  );
-  const [user] = users;
-  if (!user) {
-    return res.sendStatus(401);
-  }
+  try {
+    const { rows: users } = await getUserByEmailDB(email);
+    if (users.length === 0) {
+      return res.status(401).send({ message: "Email not registered!" });
+    }
 
-  if (bcrypt.compareSync(password, user.password)) {
+    const [user] = users;
+    const isPasswordCorrect = bcrypt.compareSync(password, user.password);
+    if (!isPasswordCorrect) {
+      return res.status(401).send({ message: "Incorrect password!" });
+    }
+
     const token = uuid();
-    await db.query(
-      `
-      INSERT INTO sessions (token, "userId") VALUES ($1, $2)`,
-      [token, user.id]
-    );
-    return res.send({ token });
-  }
+    await createSessionDB(user.id, token);
 
-  res.sendStatus(401);
+    res.send({ token });
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
 }
 
-export async function signUp(req, res) {
-    const { name, email, password, confirmPassword } = req.body;
 
-  
-    const { rows: users } = await db.query(`SELECT * FROM users WHERE email = $1`, [email]);
+export async function signUp(req, res) {
+  const { name, email, password, confirmPassword } = req.body;
+
+  try {
+    const users = await getUserByEmailDB(email);
     if (users.length > 0) {
-        return res.status(400).json({ error: "Email already in use" });
+      return res.status(409).send({ message: "Email already in use" });
     }
 
     if (password !== confirmPassword) {
-        return res.status(400).json({ error: "Passwords do not match" });
+      return res.status(400).send({ message: "Passwords do not match" });
     }
 
- 
     const hashedPassword = bcrypt.hashSync(password, 10);
-
-    const { rows } = await db.query(
-      `INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id`,
-      [name, email, hashedPassword]
-    );
-
+    const { rows } = await createUserDB(name, email, hashedPassword);
     const [newUser] = rows;
 
-    res.json({ message: "User created successfully", userId: newUser.id });
+    res.status(201).send({ message: "User created successfully", userId: newUser.id });
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
 }

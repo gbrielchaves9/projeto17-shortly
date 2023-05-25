@@ -1,32 +1,27 @@
 import { db } from '../database/database.connection.js'
 
 export async function authValidation(req, res, next) {
-  const authorization = req.headers.authorization
-  const token = authorization?.replace("Bearer ", "")
+  const authorization = req.headers.authorization;
+  const token = authorization?.replace("Bearer ", "");
 
-  if (!token) return res.status(401).send("No Token.")
+  if (!token) return res.status(401).send("No token provided.");
 
   try {
-
     const { rows: sessions } = await db.query(`
       SELECT * FROM sessions WHERE token = $1
-    `, [token])
+    `, [token]);
 
     const [session] = sessions;
+    if (!session) return res.status(401).send("Session not found.");
 
-    if (!session) return res.status(401).send("Session not found.")
+    const { rows: users } = await db.query(`SELECT * FROM users WHERE id = $1`, [session.IdUser]);
+    const [user] = users;
+    if (!user) return res.status(401).send("User not found.");
 
-    const { rows: users } = await db.query(`SELECT * FROM users WHERE id = $1`, [session.userId])
-    const [user] = users
-
-    if (!user) return res.status(401).send("User not found.")
-
-    res.locals.user = user
-    next()
-
+    res.locals.user = user;
+    next();
   } catch (error) {
-    console.log(error)
-    res.status(500).send("falha")
+    console.log(error);
+    res.status(500).send("Unexpected error.");
   }
-
 }

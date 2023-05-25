@@ -1,51 +1,69 @@
 import { db } from '../database/database.connection.js'
 
+import { customAlphabet } from 'nanoid'
+const nanoid = customAlphabet('1234567890abcdef', 8)
+
 export async function shortenUrl(req, res) {
     const { url } = req.body;
-    
-    // você precisa implementar a lógica para gerar shortUrl
-    const shortUrl = // lógica para gerar shortUrl aqui
-
-    await db.query('INSERT INTO urls (original, short) VALUES ($1, $2)', [url, shortUrl]);
-
-    res.json({ shortUrl });
+    const userId = res.locals.user.id; 
+    const shortUrl = nanoid();
+  
+    try {
+        const { rows: [newUrl] } = await db.query('INSERT INTO urls (url, "shortUrl", "IdUser") VALUES ($1, $2, $3) RETURNING *', [url, shortUrl, userId]);
+        res.status(201).json(newUrl);
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ error: 'Failed to shorten the URL' });
+    }
 }
 
 export async function getUrl(req, res) {
     const { id } = req.params;
-
-    const result = await db.query('SELECT * FROM urls WHERE id = $1', [id]);
-    const url = result.rows[0];
-
-    if (!url) {
-        return res.status(404).json({ error: 'URL not found' });
+    try {
+        const { rows } = await db.query('SELECT * FROM urls WHERE id = $1', [id]);
+        const [url] = rows;
+        if (!url) {
+            return res.status(404).json({ error: 'URL not found' });
+        }
+        res.json(url);
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ error: 'Failed to get the URL' });
     }
-
-    res.json({ url: url.original });
 }
 
 export async function openShort(req, res) {
     const { shortUrl } = req.params;
-
-    const result = await db.query('SELECT * FROM urls WHERE short = $1', [shortUrl]);
-    const url = result.rows[0];
-
-    if (!url) {
-        return res.status(404).json({ error: 'URL not found' });
+    try {
+        const { rows } = await db.query('SELECT * FROM urls WHERE "shortUrl" = $1', [shortUrl]);
+        const [url] = rows;
+        if (!url) {
+            return res.status(404).json({ error: 'URL not found' });
+        }
+        await db.query('UPDATE urls SET "Count" = "Count" + 1 WHERE "shortUrl" = $1', [shortUrl]);
+        res.redirect(url.url);
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ error: 'Failed to open the URL' });
     }
-
-    res.redirect(url.original);
 }
 
 export async function deleteU(req, res) {
     const { id } = req.params;
-
-    const result = await db.query('DELETE FROM urls WHERE id = $1 RETURNING *', [id]);
-    const deleted = result.rows[0];
-
-    if (!deleted) {
-        return res.status(404).json({ error: 'URL not found' });
+    const userId = res.locals.user.id; 
+    try {
+        const { rows } = await db.query('SELECT * FROM urls WHERE id = $1', [id]);
+        const [url] = rows;
+        if (!url) {
+            return res.status(404).json({ error: 'URL not found' });
+        }
+        if (url.IdUser !== userId) {
+            return res.status(403).json({ error: 'You can only delete URLs that you have created' });
+        }
+        await db.query('DELETE FROM urls WHERE id = $1', [id]);
+        res.json({ message: 'URL deleted successfully' });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ error: 'Failed to delete the URL' });
     }
-
-    res.json({ message: 'URL deleted successfully' });
 }
