@@ -1,13 +1,12 @@
 import { Router } from "express";
+import { signIn, signUp } from "../controllers/auth.controller.js";
 import { validateSchema } from "../middlewares/schemaValidator.js";
-import loginSchema from "../schemas/loginSchema.js";
-import userSchema from "../schemas/userSchema.js";
-import { createUser } from "../controllers/users.controller.js";
-import { signIn } from "../controllers/auth.controller.js";
+import loginSchema from "../schemas/auth.shemas.js";
+import userSchema from "../schemas/user.Shema.js";
 
 const router = Router();
 
 router.post("/signin", validateSchema(loginSchema), signIn);
-router.post("/signup", validateSchema(userSchema), createUser);
+router.post("/signup", validateSchema(userSchema), signUp);
 
 export default router;

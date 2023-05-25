@@ -1,19 +1,14 @@
 import { Router } from "express";
 import { authValidation } from "../middlewares/authorization.middleware.js";
-import urlSchema from "../schemas/urlSchema.js";
+import urlsSchema from '../schemas/urls.schema.js';
 import { validateSchema } from "../middlewares/schemaValidator.js";
-import { deleteUrl, getUrlById, openShortUrl, shortenUrl } from "../controllers/url.controller.js";
+import { deleteU, getUrl, openShort, shortenUrl } from "../controllers/urls.controller.js";
 
 const router = Router();
 
-router.post(
-  "/urls/shorten",
-  validateSchema(urlSchema),
-  authValidation,
-  shortenUrl
-);
-router.get("/urls/:id", getUrlById);
-router.get("/urls/open/:shortUrl", openShortUrl);
-router.delete("/urls/:id", authValidation, deleteUrl);
+router.post("/urls/shorten",validateSchema(urlsSchema) ,shortenUrl);
+router.get("/urls/:id", getUrl);
+router.get("/urls/open/:shortUrl", openShort);
+router.delete("/urls/:id", authValidation, deleteU);
 
 export default router;
